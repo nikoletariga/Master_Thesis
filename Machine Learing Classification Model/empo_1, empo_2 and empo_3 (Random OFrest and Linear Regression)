@@ -1,0 +1,92 @@
+import pandas as pd
+import biom
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import MultiLabelBinarizer
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import jaccard_score
+from sklearn.multiclass import OneVsRestClassifier
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+
+def load_biom_as_dataframe(biom_path):
+    """Load a .biom file and return as a pandas DataFrame."""
+    print("Loading .biom file...")
+    biom_table = biom.load_table(biom_path)
+    return biom_table.to_dataframe().transpose()
+
+# Load datasets
+biom_df = load_biom_as_dataframe(".../emp_deblur_90bp.subset_2k.biom")
+print("BIOM file loaded successfully.")
+
+mapping_df = pd.read_csv(".../emp_qiime_mapping_subset_2k.tsv", sep="\t")
+print("Mapping file loaded successfully.")
+
+# Explicitly list the EMPO columns
+empo_columns = ['empo_1', 'empo_2', 'empo_3']
+
+# Check if EMPO columns exist
+if not all(col in mapping_df.columns for col in empo_columns):
+    raise ValueError("Some EMPO columns are missing from the mapping_df.")
+# Align features and EMPO levels
+merged_df = biom_df.join(mapping_df.set_index('#SampleID')[empo_columns])
+merged_df.dropna(subset=empo_columns, inplace=True)
+
+# Convert EMPO columns to binary format
+mlb = MultiLabelBinarizer()
+y_bin = mlb.fit_transform(merged_df[empo_columns].values)
+
+X = merged_df.drop(columns=empo_columns)
+X_train, X_test, y_train_bin, y_test_bin = train_test_split(X, y_bin, test_size=0.3, random_state=42)
+
+# Initialize classification models
+models = {
+    'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1),
+    'Logistic Regression': OneVsRestClassifier(LogisticRegression(max_iter=1000))
+}
+
+# Train and evaluate each model
+for name, model in models.items():
+    print(f"\nTraining {name}...")
+    model.fit(X_train, y_train_bin)
+    y_pred_bin = model.predict(X_test)
+
+# We use Jaccard similarity as it's suitable for multi-label classification
+    jaccard = jaccard_score(y_test_bin, y_pred_bin, average='samples')
+    print(f"{name} Jaccard similarity on test set: {jaccard}")
+
+# Cross-validation
+    cv_scores = cross_val_score(model, X, y_bin, cv=10, scoring='jaccard_samples', n_jobs=-1)
+    print(f"{name} average Jaccard similarity from cross-validation: {cv_scores.mean()}")
+    print(f"{name} standard deviation of Jaccard similarity from cross-validation: {cv_scores.std()}")
+
+    '''
+    Loading .biom file...
+    BIOM file loaded successfully.
+    Mapping file loaded successfully.
+
+    Training Random Forest...
+    Random Forest Jaccard similarity on test set: 0.7892222222222222
+    Random Forest average Jaccard similarity from cross-validation: 0.8052250000000001
+    Random Forest standard deviation of Jaccard similarity from cross-validation: 0.019781516695586747
+
+    Training Logistic Regression...
+    Logistic Regression Jaccard similarity on test set: 0.8370654761904762
+    Logistic Regression average Jaccard similarity from cross-validation: 0.8348517857142858
+    Logistic Regression standard deviation of Jaccard similarity from cross-validation: 0.019918906146330555
+    '''
+
+    '''
+
+    1. **Random Forest**
+       - Jaccard similarity on the test set: 0.7892
+       - Average Jaccard similarity from cross-validation: 0.8052
+       - Standard deviation of Jaccard similarity from cross-validation: 0.0198
+
+    2. **Logistic Regression** (with OneVsRestClassifier)
+       - Jaccard similarity on the test set: 0.8371
+       - Average Jaccard similarity from cross-validation: 0.8349
+       - Standard deviation of Jaccard similarity from cross-validation: 0.0199
+
+    '''
