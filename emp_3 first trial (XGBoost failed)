@@ -1,0 +1,87 @@
+import pandas as pd
+import biom
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.linear_model import LogisticRegression
+from xgboost import XGBClassifier
+from sklearn.metrics import accuracy_score
+import warnings
+
+warnings.filterwarnings("ignore", category=FutureWarning)
+
+def load_biom_as_dataframe(biom_path):
+    """Load a .biom file and return as a pandas DataFrame."""
+    print("Loading .biom file...")
+    biom_table = biom.load_table(biom_path)
+    return biom_table.to_dataframe().transpose()
+
+# Load datasets
+biom_df = load_biom_as_dataframe(".../emp_deblur_90bp.subset_2k.biom")
+print("BIOM file loaded successfully.")
+
+mapping_df = pd.read_csv(".../emp_qiime_mapping_subset_2k.tsv", sep="\t")
+print("Mapping file loaded successfully.")
+
+# Align features and EMPO levels
+merged_df = biom_df.join(mapping_df.set_index('#SampleID')['empo_3'])
+merged_df = merged_df.dropna(subset=['empo_3'])
+
+X = merged_df.drop(columns=['empo_3'])
+y = merged_df['empo_3']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# Initialize classification models
+models = {
+    'Random Forest': RandomForestClassifier(n_estimators=50, random_state=42, n_jobs=-1),
+    'Logistic Regression': LogisticRegression(max_iter=5000),  # Increased max_iter
+    'Gradient Boosting': GradientBoostingClassifier(n_estimators=100, random_state=42),
+    'XGBoost': XGBClassifier(n_estimators=50, random_state=42, use_label_encoder=False, eval_metric="mlogloss", nthread=-1)
+}
+
+# Train and evaluate each model
+for name, model in models.items():
+    print(f"\nTraining {name}...")
+
+    if name == 'XGBoost':
+        eval_set = [(X_train, y_train), (X_test, y_test)]
+        model.fit(X_train, y_train, eval_metric="mlogloss", eval_set=eval_set, early_stopping_rounds=10, verbose=False)
+    else:
+        model.fit(X_train, y_train)
+
+    y_pred = model.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
+    print(f"{name} accuracy on test set: {accuracy}")
+
+# Cross-validation with 5 folds
+    cv_scores = cross_val_score(model, X, y, cv=5, scoring='accuracy', n_jobs=-1)
+    print(f"{name} average accuracy from cross-validation: {cv_scores.mean()}")
+    print(f"{name} standard deviation of accuracy from cross-validation: {cv_scores.std()}")
+
+
+
+# RESULTS
+
+'''
+Loading .biom file...
+BIOM file loaded successfully.
+Mapping file loaded successfully.
+
+Training Random Forest...
+Random Forest accuracy on test set: 0.8416666666666667
+Random Forest average accuracy from cross-validation: 0.8450000000000001
+Random Forest standard deviation of accuracy from cross-validation: 0.010000000000000026
+
+Training Logistic Regression...
+Logistic Regression accuracy on test set: 0.81
+Logistic Regression average accuracy from cross-validation: 0.8225000000000001
+Logistic Regression standard deviation of accuracy from cross-validation: 0.01795828499606796
+
+Training Gradient Boosting...
+Gradient Boosting accuracy on test set: 0.8683333333333333
+Gradient Boosting average accuracy from cross-validation: 0.8535
+Gradient Boosting standard deviation of accuracy from cross-validation: 0.010559356040971454
+
+XGBoost failed
+
+'''

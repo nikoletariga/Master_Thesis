@@ -1,5 +1,3 @@
-Here's the text you provided formatted in Markdown:
-
 ```markdown
 Alternatively in command line you can run the following commands for QIIME 2 tool
 
@@ -55,5 +53,4 @@ qiime feature-table summarize \
 qiime feature-table tabulate-seqs \
   --i-data rep-seqs.qza \
   --o-visualization rep-seqs.qzv
-```
 ```
