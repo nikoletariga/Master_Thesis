@@ -17,10 +17,10 @@ def load_biom_as_dataframe(biom_path):
     return biom_table.to_dataframe().transpose()
 
 # Load datasets
-biom_df = load_biom_as_dataframe("/Users/angeloskyratzakos/nikol/emp_deblur_90bp.subset_2k.biom")
+biom_df = load_biom_as_dataframe(".../emp_deblur_90bp.subset_2k.biom")
 print("BIOM file loaded successfully.")
 
-mapping_df = pd.read_csv("/Users/angeloskyratzakos/nikol/emp_qiime_mapping_subset_2k.tsv", sep="\t")
+mapping_df = pd.read_csv(".../emp_qiime_mapping_subset_2k.tsv", sep="\t")
 print("Mapping file loaded successfully.")
 
 # Align features and EMPO levels

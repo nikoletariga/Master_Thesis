@@ -53,14 +53,12 @@ for name, model in models.items():
     accuracy = accuracy_score(y_test, y_pred)
     print(f"{name} accuracy on test set: {accuracy}")
 
-# Cross-validation with 5 folds
+    # Cross-validation with 5 folds
     cv_scores = cross_val_score(model, X, y, cv=5, scoring='accuracy', n_jobs=-1)
     print(f"{name} average accuracy from cross-validation: {cv_scores.mean()}")
     print(f"{name} standard deviation of accuracy from cross-validation: {cv_scores.std()}")
 
 
-
-# RESULTS
 
 '''
 Loading .biom file...
@@ -83,5 +81,4 @@ Gradient Boosting average accuracy from cross-validation: 0.8535
 Gradient Boosting standard deviation of accuracy from cross-validation: 0.010559356040971454
 
 XGBoost failed
-
 '''
