@@ -1,0 +1,81 @@
+import pandas as pd
+import biom
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.linear_model import LinearRegression
+from xgboost import XGBRegressor
+from sklearn.metrics import r2_score
+import warnings
+import warnings
+warnings.simplefilter(action='ignore', category=Warning)
+
+def load_biom_as_dataframe(biom_path):
+   """Load a .biom file and return as a pandas DataFrame."""
+   print("Loading .biom file...")
+   biom_table = biom.load_table(biom_path)
+   return biom_table.to_dataframe().transpose()
+
+# Load your datasets
+biom_df = load_biom_as_dataframe(".../emp_deblur_90bp.subset_2k.biom")
+print("BIOM file loaded successfully.")
+
+mapping_df = pd.read_csv(".../emp_qiime_mapping_subset_2k.tsv", sep="\t")
+print("Mapping file loaded successfully.")
+
+# Align features and target variable
+merged_df = biom_df.join(mapping_df.set_index('#SampleID')['salinity_psu'])
+merged_df = merged_df.dropna(subset=['salinity_psu'])
+
+X = merged_df.drop(columns=['salinity_psu'])
+y = merged_df['salinity_psu']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# Initialize models
+models = {
+   'Random Forest': RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1),
+   'Linear Regression': LinearRegression(),
+   'Gradient Boosting': GradientBoostingRegressor(n_estimators=100, random_state=42),
+   'XGBoost': XGBRegressor(objective ='reg:squarederror', n_estimators=100, random_state=42)  # Added XGBoost
+}
+
+# Train and evaluate each model
+for name, model in models.items():
+   print(f"\nTraining {name}...")
+   model.fit(X_train, y_train)
+   y_pred = model.predict(X_test)
+   r2 = r2_score(y_test, y_pred)
+   print(f"{name} R-squared (R2) on test set: {r2}")
+
+   # Cross-validation
+   cv_scores = cross_val_score(model, X, y, cv=10, scoring='r2', n_jobs=-1)
+   print(f"{name} average R^2 score from cross-validation: {cv_scores.mean()}")
+   print(f"{name} standard deviation of R^2 from cross-validation: {cv_scores.std()}")
+
+import pdb; pdb.set_trace()
+
+'''
+Loading .biom file...
+BIOM file loaded successfully.
+Mapping file loaded successfully.
+
+Training Random Forest...
+Random Forest R-squared (R2) on test set: 0.7679474803474186
+Random Forest average R^2 score from cross-validation: 0.7082385344904021
+Random Forest standard deviation of R^2 from cross-validation: 0.2758388901093769
+
+Training Linear Regression...
+Linear Regression R-squared (R2) on test set: 0.5595095532763232
+Linear Regression average R^2 score from cross-validation: -0.878567679381908
+Linear Regression standard deviation of R^2 from cross-validation: 3.4607535998183563
+
+Training Gradient Boosting...
+Gradient Boosting R-squared (R2) on test set: 0.752056357172867
+Gradient Boosting average R^2 score from cross-validation: 0.5389597607937977
+Gradient Boosting standard deviation of R^2 from cross-validation: 0.5057010019192459
+
+Training XGBoost...
+XGBoost R-squared (R2) on test set: 0.736512838852069
+XGBoost average R^2 score from cross-validation: 0.4658276015531505
+XGBoost standard deviation of R^2 from cross-validation: 0.5674998254027115
+'''

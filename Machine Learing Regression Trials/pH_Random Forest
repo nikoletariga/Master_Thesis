@@ -1,0 +1,107 @@
+# Random Forest
+
+import pandas as pd
+import biom
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+def load_biom_as_dataframe(biom_path):
+    """Load a .biom file and return as a pandas DataFrame."""
+    print("Loading .biom file...")
+    biom_table = biom.load_table(biom_path)
+    return biom_table.to_dataframe().transpose()
+
+# Load your datasets here
+biom_df = load_biom_as_dataframe(".../emp_deblur_90bp.subset_2k.biom")
+print("BIOM file loaded successfully.")
+
+print("Loading mapping file...")
+mapping_df = pd.read_csv(".../emp_qiime_mapping_subset_2k.tsv", sep="\t")
+print("Mapping file loaded successfully.")
+print("Aligning the features and target variable...")
+merged_df = biom_df.join(mapping_df.set_index('#SampleID')['ph'])
+merged_df = merged_df.dropna(subset=['ph'])
+print("Alignment done.")
+
+print("Splitting data into training and test sets...")
+X = merged_df.drop(columns=['ph'])
+y = merged_df['ph']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+print("Data splitting done.")
+
+print("Training the Random Forest regressor...")
+# Using all available cores with n_jobs=-1
+rf_regressor = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+rf_regressor.fit(X_train, y_train)
+print("Training done.")
+
+# Evaluate model on training data
+y_train_pred = rf_regressor.predict(X_train)
+mae_train = mean_absolute_error(y_train, y_train_pred)
+mse_train = mean_squared_error(y_train, y_train_pred)
+r2_train = r2_score(y_train, y_train_pred)
+print(f"\nTraining Data Metrics:")
+print(f"Mean Absolute Error (MAE): {mae_train}")
+print(f"Mean Squared Error (MSE): {mse_train}")
+print(f"R-squared (R2): {r2_train}\n")
+
+print("Predicting on the test set...")
+y_pred = rf_regressor.predict(X_test)
+print("Prediction done.")
+
+print("Calculating regression metrics for test data...")
+mae = mean_absolute_error(y_test, y_pred)
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+print(f"Mean Absolute Error (MAE): {mae}")
+print(f"Mean Squared Error (MSE): {mse}")
+print(f"R-squared (R2): {r2}")
+
+print("Calculating feature importance...")
+feature_importances = rf_regressor.feature_importances_
+features_df = pd.DataFrame({
+    'Feature': X.columns,
+    'Importance': feature_importances
+})
+print(features_df.sort_values(by='Importance', ascending=False).head(10))
+
+import pdb; pdb.set_trace()
+
+
+'''
+Loading .biom file...
+BIOM file loaded successfully.
+Loading mapping file...
+Mapping file loaded successfully.
+Aligning the features and target variable...
+Alignment done.
+Splitting data into training and test sets...
+Data splitting done.
+Training the Random Forest regressor...
+Training done.
+
+Training Data Metrics:
+Mean Absolute Error (MAE): 0.22964210606060487
+Mean Squared Error (MSE): 0.1339920714212163
+R-squared (R2): 0.9549000920624933
+
+Predicting on the test set...
+Prediction done.
+Calculating regression metrics for test data...
+Mean Absolute Error (MAE): 0.5447222093023251
+Mean Squared Error (MSE): 0.622669667026814
+R-squared (R2): 0.7410889047126881
+Calculating feature importance...
+                                                  Feature  Importance
+191378  TACGAAGGGGGCTAGCGTTGTTCGGAATTACTGGGCGTAAAGCGCG...    0.278106
+267752  TACGGAGGGTGCGAGCGTTAATCGGAATTACTGGGCGTAAAGCGCG...    0.105622
+42061   TACGAAGGGTGCAAGCGTTACTCGGAATTACTGGGCGTAAAGCGTG...    0.061510
+245028  TACGTAGGGTGCAAGCGTTGTCCGGATTTACTGGGTTTAAAGGGTG...    0.025648
+202431  TACGAAGGGGGCTAGCGTTGCTCGGAATCACTGGGCGTAAAGGGTG...    0.023673
+41943   TACGTAGGGTGCGAGCGTTAATCGGAATTACTGGGCGTAAAGCGTG...    0.017637
+252209  GACGGAGGGGGCGAGCGTTGTCCGGATTTACTGGGCGTAAAGGGCG...    0.016856
+263385  TACGAAGGGGGCTAGCGTTGCTCGGAATCACTGGGCGTAAAGCGCA...    0.013783
+249471  CACGTAGGGCGCAAGCGTTGTCCGGAATTATTGGGCGTAAAGAGCT...    0.013675
+62586   TACGTAGGCAGCGAGCGTTGTTCGGAATTACTGGGCGTAAAGAGTG...    0.013392
+'''

@@ -1,0 +1,120 @@
+import pandas as pd
+import biom
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.linear_model import LinearRegression
+from xgboost import XGBRegressor
+from sklearn.metrics import r2_score
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+
+
+def load_biom_as_dataframe(biom_path):
+   """Load a .biom file and return as a pandas DataFrame."""
+   print("Loading .biom file...")
+   biom_table = biom.load_table(biom_path)
+   return biom_table.to_dataframe().transpose()
+
+# Load your datasets
+biom_df = load_biom_as_dataframe(".../emp_deblur_90bp.subset_2k.biom")
+print("BIOM file loaded successfully.")
+
+mapping_df = pd.read_csv(".../emp_qiime_mapping_subset_2k.tsv", sep="\t")
+print("Mapping file loaded successfully.")
+
+# Align features and target variable
+merged_df = biom_df.join(mapping_df.set_index('#SampleID')['ph'])
+merged_df = merged_df.dropna(subset=['ph'])
+
+X = merged_df.drop(columns=['ph'])
+y = merged_df['ph']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# Initialize models
+models = {
+   'Random Forest': RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1),
+   'Linear Regression': LinearRegression(),
+   'Gradient Boosting': GradientBoostingRegressor(n_estimators=100, random_state=42),
+   'XGBoost': XGBRegressor(objective ='reg:squarederror', n_estimators=100, random_state=42)  # Added XGBoost
+}
+
+# Train and evaluate each model
+for name, model in models.items():
+   print(f"\nTraining {name}...")
+   model.fit(X_train, y_train)
+   y_pred = model.predict(X_test)
+   r2 = r2_score(y_test, y_pred)
+   print(f"{name} R-squared (R2) on test set: {r2}")
+
+# Cross-validation
+   cv_scores = cross_val_score(model, X, y, cv=10, scoring='r2', n_jobs=-1)
+   print(f"{name} average R^2 score from cross-validation: {cv_scores.mean()}")
+   print(f"{name} standard deviation of R^2 from cross-validation: {cv_scores.std()}")
+
+
+
+   '''
+   Loading .biom file...
+   BIOM file loaded successfully.
+   Mapping file loaded successfully.
+
+   Training Random Forest...
+   Random Forest R-squared (R2) on test set: 0.7410889047126882
+   Random Forest average R^2 score from cross-validation: 0.6859374328955631
+   Random Forest standard deviation of R^2 from cross-validation: 0.11152513388271877
+
+   Training Linear Regression...
+   Linear Regression R-squared (R2) on test set: 0.22158823157815655
+   Linear Regression average R^2 score from cross-validation: 0.1270970347684175
+   Linear Regression standard deviation of R^2 from cross-validation: 0.4283917733179547
+
+   Training Gradient Boosting...
+   Gradient Boosting R-squared (R2) on test set: 0.760960026959748
+   Gradient Boosting average R^2 score from cross-validation: 0.6888340404615597
+   Gradient Boosting standard deviation of R^2 from cross-validation: 0.11448912676265453
+
+   Training XGBoost...
+   XGBoost R-squared (R2) on test set: 0.697535630110993
+   XGBoost average R^2 score from cross-validation: 0.674761884787916
+   XGBoost standard deviation of R^2 from cross-validation: 0.14040816702028697
+   '''
+
+
+   '''
+   The results show the performance of the four models (Random Forest, Linear Regression, Gradient Boosting, and XGBoost) on the test set, as well as the average and standard deviation of the \( R^2 \) scores from cross-validation. Let's analyze them:
+
+   1. **Random Forest**:
+      - Test set \( R^2 \): 0.7411
+      - Average \( R^2 \) from CV: 0.6859
+      - Standard Deviation from CV: 0.1115
+
+      Random Forest performed quite well, explaining about 74.11% of the variance on the test set.
+
+   2. **Linear Regression**:
+      - Test set \( R^2 \): 0.2216
+      - Average \( R^2 \) from CV: 0.1271
+      - Standard Deviation from CV: 0.4284
+
+      Linear Regression had a lower performance. This may indicate that the relationship between the predictors and the target variable is not linear, or there might be interactions between predictors that the linear model couldn't capture.
+
+   3. **Gradient Boosting**:
+      - Test set \( R^2 \): 0.7610
+      - Average \( R^2 \) from CV: 0.6888
+      - Standard Deviation from CV: 0.1145
+
+      Gradient Boosting performed the best among all the models, explaining about 76.10% of the variance on the test set.
+
+   4. **XGBoost**:
+      - Test set \( R^2 \): 0.6975
+      - Average \( R^2 \) from CV: 0.6748
+      - Standard Deviation from CV: 0.1404
+
+      XGBoost also performed well, but slightly less than Random Forest and Gradient Boosting.
+
+   In summary:
+   - **Gradient Boosting** is the best-performing model on the test set.
+   - **Linear Regression** had the lowest performance, indicating the possibility of a non-linear relationship in the data.
+   - **Random Forest** and **XGBoost** showed competitive results, but Gradient Boosting was slightly superior.
+
+   '''
