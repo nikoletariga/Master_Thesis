@@ -1,5 +1,5 @@
-```markdown
 Alternatively in command line you can run the following commands for QIIME 2 tool
+
 
 ## qiime2 tools import
 
