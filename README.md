@@ -1,3 +1,5 @@
+MASTER DISSERTATION «APPLICATIONS OF MACHINE LEARNING IN MICROBIOME DATA»
+
 ##Introduction
 
 The data used in this postgraduate thesis were from the Earth Microbiome Project by Thompson et al., 2017. Specifically, the EMP-wide sample metadata was used, available at the following link: http://ftp.microbio.me/emp/release1/. Additionally, the results derived from the bioinformatics analysis conducted by the researchers can be found at the link: https://zenodo.org/records/890000 for a total of 2000 samples.
